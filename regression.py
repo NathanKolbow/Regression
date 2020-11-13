@@ -1,17 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Nov 11 11:20:53 2020
-
-@author: Nathan
-"""
-
 import pandas as pd
 import numpy as np
 from scipy.stats import t
 import random
 
 
-class RegressionModel():
+class Regressor():
     def __init__(self):
         self._data = None
         self._lm = None
@@ -41,22 +34,15 @@ class RegressionModel():
         RETURNS:
             An LMModel
         """
-        vars = []
-        i = 0
-        while i < len(formula):
-            # Find the next variable
-            while formula[i] != '\'':
-                i += 1
+        y_var, x_vars = formula.split('~')
+        x_vars = x_vars.split('+')
+        y_var = y_var.strip()
+        for i in range(len(x_vars)):
+            x_vars[i] = x_vars[i].strip()
 
-            j = i + 1
-            while formula[j] != '\'':
-                j += 1
-            
-            vars.append(formula[i+1:j]) 
-            i = j + 1
-
-        y = self._data.loc[:, vars[0]].values
-        X = np.append(np.expand_dims(np.repeat(1, self._data.shape[0]), axis=1), self._data.loc[:, vars[1:]].values, axis=1)
+        y = self._data.loc[:, y_var]
+        X = self._data.loc[:, x_vars]
+        X['(Intercept)'] = 1
 
         self._lm = LinearModel()
         self._lm.fit(X, y)
@@ -75,6 +61,10 @@ class LinearModel():
     def fit(self, X, y):
         self._n = X.shape[0]
         self._m = X.shape[1]
+
+        self._names = np.append(y.name, X.columns)
+        y = y.values
+        X = X.values
 
         self._betas = np.linalg.inv(X.T.dot(X)).dot(X.T).dot(y)
         mse = 0
@@ -111,200 +101,18 @@ class LinearModel():
 
         summ = self.summary()
         print('\t\tEstimate\tStd.Error\tt value\tPr(>|t|)')
+        max_len = max([len(x) for x in self._names])
         for i in range(summ['m']):
-            if i == 0:
-                print('(Intercept)\t', end='')
-            else:
-                print('No name\t\t', end='')
+            print(self._names[i+1].ljust(max_len), '\t', end='')
 
             p = summ['p-value'][i]
             stars = ' ' if p > 0.1 else '.' if p > 0.05 else '*' if p > 0.01 else '**' if p > 0.001 else '***'
-            print('%.3e\t%.3e\t%.3f\t%.4f %s' % (summ['betas'][i], summ['se'][i], summ['t'][i], p, stars))
+            print('%.3e\t%.3e\t%.3f\t%.4f\t%s' % (summ['betas'][i], summ['se'][i], summ['t'][i], p, stars))
 
 
 
 if __name__ == '__main__':
-    r = RegressionModel()
+    r = Regressor()
     r.read_csv("bodyfat.csv")
-    r.lm("'BODYFAT' ~ 'DENSITY' + 'AGE' + 'KNEE'")
+    r.lm("BODYFAT ~ DENSITY + AGE + KNEE")
     r.print_summary()
-    
-
-def print_stats(dataset, col):
-    """
-    INPUT: 
-        dataset - the body fat n by m+1 array
-        col     - the index of feature to summarize on. 
-                  For example, 1 refers to density.
-
-    PRINTS:
-        n              - number of samples
-        sample mean    - sample mean of the given feature
-        sample std dev - sample standard deviation of the given fetaure
-
-    RETURNS:
-        None
-    """
-    n = dataset.shape[0]
-    samp_mean = np.sum(dataset[:, col]) / n
-    samd_sd = np.sqrt(np.sum((dataset[:, col] - samp_mean) ** 2) / (n-1))
-
-    print(n)
-    print("%.2f" % samp_mean)
-    print("%.2f" % samd_sd)
-    
-
-def regression(dataset, cols, betas):
-    """
-    INPUT: 
-        dataset - the body fat n by m+1 array
-        cols    - a list of feature indices to learn.
-                  For example, [1,8] refers to density and abdomen.
-        betas   - a list of elements chosen from [beta0, beta1, ..., betam]
-
-    RETURNS:
-        mse of the regression model
-    """
-    mse = 0
-    for sample in dataset:
-        prediction = betas[0] + np.sum(sample[cols] * np.array(betas[1:]))
-        mse += ((prediction - sample[0]) ** 2)
-    return mse / dataset.shape[0]
-
-
-def gradient_descent(dataset, cols, betas):
-    """
-    INPUT: 
-        dataset - the body fat n by m+1 array
-        cols    - a list of feature indices to learn.
-                  For example, [1,8] refers to density and abdomen.
-        betas   - a list of elements chosen from [beta0, beta1, ..., betam]
-
-    RETURNS:
-        A 1D array of gradients
-    """
-    n = dataset.shape[0]
-    gradient = np.zeros(len(betas))
-    for sample in dataset:
-        prediction = betas[0] + np.sum(sample[cols] * np.array(betas[1:]))
-        gradient[0] += prediction - sample[0]
-        gradient[1:] += (prediction - sample[0]) * sample[cols]
-    
-    return np.apply_along_axis(lambda x : 2 * x / n, 0, gradient)
-
-
-def iterate_gradient(dataset, cols, betas, T, eta):
-    """
-    INPUT: 
-        dataset - the body fat n by m+1 array
-        cols    - a list of feature indices to learn.
-                  For example, [1,8] refers to density and abdomen.
-        betas   - a list of elements chosen from [beta0, beta1, ..., betam]
-        T       - # iterations to run
-        eta     - learning rate
-
-    PRINTS (for each iteration t in [1, T]):
-        t     - current iteration
-        mse   - mean squared error of the current model iteration
-        betas - the betas associated with the current model iteration
-
-    RETURNS:
-        None
-    """
-    for t in range(T):
-        betas -= eta * gradient_descent(dataset, cols, betas)
-        mse = regression(dataset, cols, betas)
-        
-        output = f'{t+1} {mse:.2f} {betas[0]:.2f}'
-        for i in range(1, len(betas)):
-            output += f' {betas[i]:.2f}'
-        print(output)
-
-
-def compute_betas(dataset, cols):
-    """
-    INPUT: 
-        dataset - the body fat n by m+1 array
-        cols    - a list of feature indices to learn.
-                  For example, [1,8] refers to density and abdomen.
-
-    RETURNS:
-        A tuple containing corresponding mse and several learned betas
-    """
-    X = np.append(np.expand_dims(np.repeat(1, dataset.shape[0]), axis=1), dataset[:, cols], axis=1)
-    y = dataset[:, 0]
-    
-    betas = np.linalg.inv(X.T.dot(X)).dot(X.T).dot(y)
-    mse = regression(dataset, cols, betas)
-    
-    return tuple(np.append(mse, betas))
-
-
-def predict(dataset, cols, features):
-    """
-    INPUT: 
-        dataset - the body fat n by m+1 array
-        cols    - a list of feature indices to learn.
-                  For example, [1,8] refers to density and abdomen.
-        features- a list of observed values
-
-    RETURNS:
-        The predicted body fat percentage value
-    """
-    betas = np.array(compute_betas(dataset, cols)[1:])
-    return betas[0] + np.sum(features * betas[1:])
-
-
-def random_index_generator(min_val, max_val, seed=42):
-    """
-    DO NOT MODIFY THIS FUNCTION.
-    DO NOT CHANGE THE SEED.
-    This generator picks a random value between min_val and max_val,
-    seeded by 42.
-    """
-    random.seed(seed)
-    while True:
-        yield random.randrange(min_val, max_val)
-
-
-def sgd(dataset, cols, betas, T, eta):
-    """
-    INPUT: 
-        dataset - the body fat n by m+1 array
-        cols    - a list of feature indices to learn.
-                  For example, [1,8] refers to density and abdomen.
-        betas   - a list of elements chosen from [beta0, beta1, ..., betam]
-        T       - # iterations to run
-        eta     - learning rate
-
-    PRINTS (for each iteration t in [1, T]):
-        t     - current iteration
-        mse   - mean squared error of the current model iteration
-        betas - the betas associated with the current model iteration
-
-    RETURNS:
-        None
-    """
-    gen = random_index_generator(0, dataset.shape[0] - 1)
-    for t in range(T):
-        _sample = gen.__next__()
-        betas -= eta * gradient_descent(dataset[_sample, :].reshape(1, -1), cols, betas)
-        mse = regression(dataset, cols, betas)
-        
-        output = f'{t+1} {mse:.2f} {betas[0]:.2f}'
-        for i in range(1, len(betas)):
-            output += f' {betas[i]:.2f}'
-        print(output)
-
-
-
-
-
-
-
-
-
-
-
-
-
