@@ -1,5 +1,6 @@
 # Regression
 
+This project implements multiple regression with the ordinary least squares (OLS) loss function (![OLS](https://wikimedia.org/api/rest_v1/media/math/render/svg/b991b0be5c18a45c1f7a997a1301cad29c7a1bf6))
 
 # Example
 
