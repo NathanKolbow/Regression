@@ -17,6 +17,7 @@ regressor.print_summary()
 Residuals:
        Min        1Q    Median        3Q       Max
    -8.1095   -0.2254   -0.1058    0.0862   15.3660
+
 Call:
 lm(BODYFAT ~ DENSITY + KNEE)
 
