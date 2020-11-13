@@ -69,10 +69,19 @@ class LinearModel():
         X = X.values
 
         self._betas = np.linalg.inv(X.T.dot(X)).dot(X.T).dot(y)
-        mse = 0
-        for sample, actual in zip(X, y):
-            mse += np.power((np.sum(self._betas * sample) - actual), 2)
-        mse /= self._n - self._m
+        
+        y_bar = np.mean(y)
+        self._pred = self.predict(X)
+        self._resid = np.sort(y - self._pred)
+        self._resid_sq = np.power(self._resid, 2)
+        self._resid_stats = (self._resid[0], 
+                             self._resid[floor(len(self._resid) / 4)],
+                             self._resid[floor(len(self._resid) / 2)],
+                             self._resid[floor(len(self._resid) / 4 * 3)],
+                             self._resid[len(self._resid)-1]
+                            )
+        
+        mse = np.sum(self._resid_sq) / (self._n - self._m)
 
         self._sig_hat_sq = mse
 
@@ -83,17 +92,8 @@ class LinearModel():
         self._t = self._betas / self._se
         self._tp = (1 - t.cdf(abs(self._t), self._n - self._m)) * 2
         
-        self._pred = self.predict(X)
-        self._resid = np.sort(y - self._pred)
-        self._resid_stats = (self._resid[0], 
-                             self._resid[floor(len(self._resid) / 4)],
-                             self._resid[floor(len(self._resid) / 2)],
-                             self._resid[floor(len(self._resid) / 4 * 3)],
-                             self._resid[len(self._resid)-1]
-                            )
-        
-        self._rss = np.sum(np.power(y - self._pred, 2))
-        self._ess = np.sum(np.power(np.mean(y) - self._pred, 2))
+        self._rss = np.sum(self._resid_sq)
+        self._ess = np.sum(np.power(y_bar - self._pred, 2))
         self._tss = self._ess + self._rss
         
         self._r_sq = self._ess / self._tss
@@ -145,6 +145,4 @@ class LinearModel():
         print(f'\nResidual standard error: {self._sig_hat_sq:.3f} on {self._n - self._m} degrees of freedom')
         print(f'Multiple R-squared: {self._r_sq:.4f}, Adjusted R-squared: {self._r_sq_a:.4f}')
         print(f'F-statistic: {self._f:.2f} on {self._m-1} and {self._n-self._m} DF, p-value: {self._fp:.4f}')
-
-
-
+        
