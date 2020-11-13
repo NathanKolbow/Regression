@@ -1,6 +1,6 @@
 # Regression
 
-This project implements multiple regression with the ordinary least squares (OLS) loss function ![OLS](https://render.githubusercontent.com/render/math?math=\hat{\beta}=\underset{\beta}{\arg\min}\lVert%20y-X\beta\lVert).  All of the project's code is contained in `regression.py`, and `bodyfat.csv` is provided as a reference dataset.  The output of the functions are meant to mimic those implemented in base R; see the example below.
+This project implements multiple linear regression with the ordinary least squares (OLS) loss function ![OLS](https://render.githubusercontent.com/render/math?math=\hat{\beta}=\underset{\beta}{\arg\min}\lVert%20y-X\beta\lVert).  All of the project's code is contained in `regression.py`, and `bodyfat.csv` is provided as a reference dataset.  The output of the functions are meant to mimic those implemented in base R; see the example below.
 
 # Example
 
