@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
-from scipy.stats import t
+from scipy.stats import f, t
 import random
+from math import floor
 
 
 class Regressor():
@@ -45,7 +46,7 @@ class Regressor():
         X['(Intercept)'] = 1
 
         self._lm = LinearModel()
-        self._lm.fit(X, y)
+        self._lm.fit(X, y, formula)
 
     def print_summary(self, model_type='lm'):
         if model_type == 'lm':
@@ -58,7 +59,8 @@ class LinearModel():
     def __int__(self):
         self._betas = None
 
-    def fit(self, X, y):
+    def fit(self, X, y, formula):
+        self._formula = formula
         self._n = X.shape[0]
         self._m = X.shape[1]
 
@@ -79,7 +81,30 @@ class LinearModel():
         self._se = np.sqrt(np.diag(sig_sq * np.linalg.inv(X.T.dot(X))))
 
         self._t = self._betas / self._se
-        self._p = (1 - t.cdf(abs(self._t), self._n - self._m)) * 2
+        self._tp = (1 - t.cdf(abs(self._t), self._n - self._m)) * 2
+        
+        self._pred = self.predict(X)
+        self._resid = np.sort(y - self._pred)
+        self._resid_stats = (self._resid[0], 
+                             self._resid[floor(len(self._resid) / 4)],
+                             self._resid[floor(len(self._resid) / 2)],
+                             self._resid[floor(len(self._resid) / 4 * 3)],
+                             self._resid[len(self._resid)-1]
+                            )
+        
+        self._rss = np.sum(np.power(y - self._pred, 2))
+        self._ess = np.sum(np.power(np.mean(y) - self._pred, 2))
+        self._tss = self._ess + self._rss
+        
+        self._r_sq = self._ess / self._tss
+        self._r_sq_a = 1 - ((self._rss / (self._n - self._m)) / (self._tss / (self._n - 1)))
+        
+        self._f = (self._ess / (self._m-1)) / (self._rss / (self._n - self._m))
+        self._fp = 1 - f.cdf(self._f, self._m - 1, self._n - self._m)
+        
+    # features must have a 1 for the intercept
+    def predict(self, features):
+        return np.sum(self._betas * features, axis=1)
 
     def summary(self):
         if self._betas is None:
@@ -91,13 +116,20 @@ class LinearModel():
                     'betas'  : self._betas,
                     'se'     : self._se,
                     't'      : self._t,
-                    'p-value': self._p
+                    'p-value': self._tp
                }
 
     def print_summary(self):
         if self._betas is None:
             print("Not fitted model.")
             return
+
+        print(f'Residuals:\n{"Min".rjust(10)}{"1Q".rjust(10)}{"Median".rjust(10)}{"3Q".rjust(10)}{"Max".rjust(10)}')
+        for stat in self._resid_stats:
+            print(f'{stat:.4f}'.rjust(10), end='')
+        print()
+
+        print(f'Call:\nlm({self._formula})\n\nCoefficients:')
 
         summ = self.summary()
         print('\t\tEstimate\tStd.Error\tt value\tPr(>|t|)')
@@ -108,11 +140,11 @@ class LinearModel():
             p = summ['p-value'][i]
             stars = ' ' if p > 0.1 else '.' if p > 0.05 else '*' if p > 0.01 else '**' if p > 0.001 else '***'
             print('%.3e\t%.3e\t%.3f\t%.4f\t%s' % (summ['betas'][i], summ['se'][i], summ['t'][i], p, stars))
+            
+        print('---\nSignif. codes:\t0 \'***\' 0.001 \'**\' 0.01 \'*\' 0.05 \'.\' 0.1 \' \' 1')
+        print(f'\nResidual standard error: {self._sig_hat_sq:.3f} on {self._n - self._m} degrees of freedom')
+        print(f'Multiple R-squared: {self._r_sq:.4f}, Adjusted R-squared: {self._r_sq_a:.4f}')
+        print(f'F-statistic: {self._f:.2f} on {self._m-1} and {self._n-self._m} DF, p-value: {self._fp:.4f}')
 
 
 
-if __name__ == '__main__':
-    r = Regressor()
-    r.read_csv("bodyfat.csv")
-    r.lm("BODYFAT ~ DENSITY + AGE + KNEE")
-    r.print_summary()
