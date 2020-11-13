@@ -127,7 +127,7 @@ class LinearModel():
         print(f'Residuals:\n{"Min".rjust(10)}{"1Q".rjust(10)}{"Median".rjust(10)}{"3Q".rjust(10)}{"Max".rjust(10)}')
         for stat in self._resid_stats:
             print(f'{stat:.4f}'.rjust(10), end='')
-        print()
+        print('\n')
 
         print(f'Call:\nlm({self._formula})\n\nCoefficients:')
 
